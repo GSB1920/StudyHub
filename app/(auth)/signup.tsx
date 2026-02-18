@@ -38,8 +38,9 @@ export default function SignupScreen() {
       }
       
       if (data.user) {
-         alert('Signup successful! Please log in.');
-         router.push('/(auth)/login');
+         // Auto login after signup if email confirmation is disabled
+         alert('Account created successfully!');
+         // router.push('/(auth)/login'); // No need to push, AuthContext should pick up session
       }
 
     } catch (err) {

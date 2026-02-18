@@ -60,8 +60,8 @@ export default function Intro() {
                 <Avatar.Icon size={72} icon={s.icon} style={{ backgroundColor: 'transparent' }} color="#fff" />
               </LinearGradient>
             </View>
-            <Text variant="headlineSmall" style={[styles.title, { color: theme.colors.onBackground }]}>{s.title}</Text>
-            <Text variant="bodyMedium" style={[styles.subtitle, { color: theme.colors.onSurfaceVariant }]}>{s.subtitle}</Text>
+            <Text variant="headlineSmall" style={[styles.title, { color: '#000000' }]}>{s.title}</Text>
+            <Text variant="bodyMedium" style={[styles.subtitle, { color: '#495057' }]}>{s.subtitle}</Text>
 
             <View style={styles.dots}>
               {SLIDES.map((_, i) => (
@@ -76,7 +76,7 @@ export default function Intro() {
             </LinearGradient>
 
             <TouchableOpacity onPress={skip} style={styles.skip}>
-              <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>Skip</Text>
+              <Text variant="bodyMedium" style={{ color: '#6c757d' }}>Skip</Text>
             </TouchableOpacity>
           </View>
         ))}
