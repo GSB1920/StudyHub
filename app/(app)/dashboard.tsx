@@ -65,15 +65,15 @@ export default function DashboardScreen() {
   const renderHeader = () => (
     <View>
       <View style={styles.header}>
-        <View>
-          <Text variant="bodyLarge" style={{ color: theme.colors.secondary, marginBottom: 4 }}>
+        <View style={{ flex: 1 }}>
+          <Text variant="bodyMedium" style={{ color: theme.colors.secondary, marginBottom: 2 }}>
             {getGreeting()},
           </Text>
-          <Text variant="headlineMedium" style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>
+          <Text variant="headlineSmall" numberOfLines={1} style={{ color: theme.colors.onBackground, fontWeight: 'bold' }}>
             {displayName}
           </Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
+        <TouchableOpacity onPress={() => router.push('/(app)/profile')} style={{ marginLeft: 16 }}>
           <Avatar.Icon size={48} icon="account" style={{ backgroundColor: theme.colors.primaryContainer }} />
         </TouchableOpacity>
       </View>
@@ -117,7 +117,7 @@ export default function DashboardScreen() {
               <TouchableOpacity 
                 style={[styles.continueCard, { backgroundColor: theme.colors.elevation.level1 }]}
                 onPress={() => {
-                   if (item.material?.url?.toLowerCase().endsWith('.pdf')) {
+                   if (item.material?.type === 'pdf' && item.material?.url) {
                       router.push({
                           pathname: '/(app)/pdf-viewer',
                           params: { url: item.material.url, title: item.material.title, materialId: item.material.id }

@@ -1,27 +1,31 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import { isAuthed } from './auth';
+import { getUser } from './auth';
 
-function RequireAuth({ children }: { children: JSX.Element }) {
-  const authed = isAuthed();
-  const loc = useLocation();
-  if (!authed) return <Navigate to="/" replace state={{ from: loc }} />;
+function ProtectedRoute({ children }: { children: JSX.Element }) {
+  const user = getUser();
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
   return children;
 }
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Login />} />
-      <Route
-        path="/dashboard"
-        element={
-          <RequireAuth>
-            <Dashboard />
-          </RequireAuth>
-        }
-      />
-    </Routes>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

@@ -146,12 +146,22 @@ export const dataService = {
     return { data, error };
   },
 
-  updateProgress: async (userId: string, materialId: string, status: string = 'started') => {
+  updateProgress: async (userId: string, materialId: string, status: string = 'started', progress: number = 0) => {
     // Upsert progress
     const { data, error } = await supabase.from('user_progress').upsert(
-      { user_id: userId, material_id: materialId, status, last_accessed: new Date().toISOString() },
+      { user_id: userId, material_id: materialId, status, progress, last_accessed: new Date().toISOString() },
       { onConflict: 'user_id, material_id' }
     ).select().single();
+    return { data, error };
+  },
+
+  getProgress: async (userId: string, materialId: string) => {
+    const { data, error } = await supabase
+      .from('user_progress')
+      .select('progress, status')
+      .eq('user_id', userId)
+      .eq('material_id', materialId)
+      .single();
     return { data, error };
   },
 

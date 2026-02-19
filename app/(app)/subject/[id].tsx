@@ -47,7 +47,7 @@ export default function SubjectDetailScreen() {
   };
 
   const openMaterial = (item: Material) => {
-    if (item.url?.toLowerCase().endsWith('.pdf')) {
+    if (item.type === 'pdf' && item.url) {
       router.push({
         pathname: '/(app)/pdf-viewer',
         params: { url: item.url, title: item.title, materialId: item.id }
