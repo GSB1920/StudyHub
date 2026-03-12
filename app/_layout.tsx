@@ -1,20 +1,17 @@
 
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
+import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { PaperProvider } from 'react-native-paper';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import AccessRevoked from '@/components/AccessRevoked';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
-import { AppLightTheme, AppDarkTheme } from '../constants/theme';
+import { AppLightTheme } from '../constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
   const { user, isLoading } = useAuth();
-  const segments = useSegments();
   const router = useRouter();
   const pathname = usePathname();
   const [lastRedirect, setLastRedirect] = useState<string | null>(null);

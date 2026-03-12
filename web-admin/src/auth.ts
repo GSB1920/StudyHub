@@ -3,8 +3,6 @@ import { Models } from 'appwrite';
 
 export type User = Models.User<Models.Preferences>;
 
-const KEY = 'wa_auth';
-
 export async function signIn(
   email: string,
   password: string
@@ -26,7 +24,6 @@ export async function signOut() {
   } catch (e) {
     console.error(e);
   }
-  localStorage.removeItem(KEY);
 }
 
 export async function getUser(): Promise<User | null> {
@@ -36,9 +33,4 @@ export async function getUser(): Promise<User | null> {
   } catch {
     return null;
   }
-}
-
-export async function isAuthed(): Promise<boolean> {
-  const u = await getUser();
-  return !!u;
 }
