@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Text, Surface, useTheme, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { dataService } from '../../lib/supabase';
+import { dataService } from '../../lib/appwrite';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function SignupScreen() {

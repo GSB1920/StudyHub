@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase, dataService } from '../lib/supabase';
-import { Session } from '@supabase/supabase-js';
+import { account, dataService } from '../lib/appwrite';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Models } from 'react-native-appwrite';
 
 interface User {
   id: string;
@@ -39,38 +39,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     checkSession();
-
-    // Listen for auth changes (e.g. token refresh, sign out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-         if (session?.user) {
-            await refreshUserProfile(session.user.id, session.user.email!);
-         }
-       } else if (event === 'SIGNED_OUT') {
-         setUser(null);
-       }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const checkSession = async () => {
     try {
-      // Create a timeout promise that rejects after 5 seconds
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Session check timeout')), 5000)
       );
 
       // Race between getSession and timeout
-      const { data: { session } } = await Promise.race([
-        supabase.auth.getSession(),
+      const result: any = await Promise.race([
+        dataService.getCurrentUser(),
         timeoutPromise.then(() => { throw new Error('Session check timeout'); })
-      ]) as any;
+      ]);
       
-      if (session?.user) {
-         await refreshUserProfile(session.user.id, session.user.email!);
+      const sessionUser = result.data;
+
+      if (sessionUser) {
+         await refreshUserProfile(sessionUser.$id, sessionUser.email);
       } else {
         // Fallback: Check if we have manually persisted user data
         const storedUser = await AsyncStorage.getItem('auth_user');
@@ -94,18 +80,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const refreshUserProfile = async (userId: string, email: string) => {
       const { data: profile } = await dataService.getProfile(userId);
-      const { data: userInfo } = await supabase.auth.getUser();
-      const metaRole = (userInfo?.user?.user_metadata as any)?.role || (userInfo?.user?.app_metadata as any)?.role;
-      const fullNameMeta = (userInfo?.user?.user_metadata as any)?.full_name;
-      const usernameMeta = (userInfo?.user?.user_metadata as any)?.username;
-      const classMeta = (userInfo?.user?.user_metadata as any)?.class;
-      const boardMeta = (userInfo?.user?.user_metadata as any)?.board;
+      const { data: accountUser } = await dataService.getCurrentUser();
+      
+      const prefs = accountUser?.prefs || {};
+      const metaRole = prefs.role;
+      const usernameMeta = prefs.username;
       
       let userData: User;
       if (profile) {
-          userData = { ...profile, email, role: metaRole || 'student', full_name: fullNameMeta ?? profile.full_name, username: usernameMeta ?? profile.username, class: profile.class ?? classMeta, board: profile.board ?? boardMeta, kill: profile.kill };
+          userData = { 
+              ...profile, 
+              email, 
+              role: metaRole || 'student', 
+              full_name: accountUser?.name || profile.full_name, 
+              username: usernameMeta || profile.username, 
+              class: profile.class, 
+              board: profile.board, 
+              kill: profile.kill 
+          };
       } else {
-          userData = { id: userId, email, role: metaRole || 'student', full_name: fullNameMeta, username: usernameMeta, class: classMeta, board: boardMeta };
+          userData = { 
+              id: userId, 
+              email, 
+              role: metaRole || 'student', 
+              full_name: accountUser?.name, 
+              username: usernameMeta,
+              class: undefined,
+              board: undefined
+          };
       }
       setUser(userData);
       AsyncStorage.setItem('auth_user', JSON.stringify(userData));
@@ -132,20 +134,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const isAdminOverride = email.toLowerCase() === 'admin@gmail.com' && password === 'admin';
       if (isAdminOverride) {
-        await supabase.auth.updateUser({ data: { role: 'admin' } });
-        const { data: userInfo } = await supabase.auth.getUser();
-        if (userInfo?.user) {
-          await refreshUserProfile(userInfo.user.id, userInfo.user.email!);
-        }
+        // Update prefs instead of user_metadata
+        await account.updatePrefs({ role: 'admin' });
       }
-    } catch {}
+      
+      const { data: userInfo } = await dataService.getCurrentUser();
+      if (userInfo) {
+          await refreshUserProfile(userInfo.$id, userInfo.email);
+      }
+    } catch (e) {
+        console.log('Error refreshing profile after login', e);
+    }
 
     setIsLoading(false);
   };
 
   const signOut = async () => {
     setIsLoading(true);
-    await supabase.auth.signOut(); // This triggers onAuthStateChange -> SIGNED_OUT
+    await dataService.logout();
     await AsyncStorage.removeItem('auth_user');
     setUser(null);
     setIsLoading(false);
@@ -159,6 +165,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!error) {
       const updatedUser = { ...user, ...data };
       setUser(updatedUser);
+      // Update local storage as well to keep it in sync
+      AsyncStorage.setItem('auth_user', JSON.stringify(updatedUser));
       return;
     }
 
@@ -169,11 +177,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user) return;
     const { data: resp, error } = await dataService.updateAccount(data);
     if (error) throw new Error(error.message);
+    
     const merged = { ...user };
     if (data.email) merged.email = data.email;
     if (data.full_name) merged.full_name = data.full_name;
     if (data.username) merged.username = data.username;
+    
     setUser(merged);
+    AsyncStorage.setItem('auth_user', JSON.stringify(merged));
   };
 
   return (

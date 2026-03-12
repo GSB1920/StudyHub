@@ -5,7 +5,7 @@ import Pdf from 'react-native-pdf';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useTheme, Text, TextInput, IconButton, Surface } from 'react-native-paper';
 import { useAuth } from '@/context/AuthContext';
-import { dataService } from '@/lib/supabase';
+import { dataService } from '@/lib/appwrite';
 
 export default function PDFViewerScreen() {
   const { url, title, materialId } = useLocalSearchParams<{ url: string; title: string; materialId: string }>();

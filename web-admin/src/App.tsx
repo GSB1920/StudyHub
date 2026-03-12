@@ -1,10 +1,23 @@
+import { useEffect, useState } from 'react';
+import type { ReactElement } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import { getUser } from './auth';
+import { getUser, User } from './auth';
 
-function ProtectedRoute({ children }: { children: JSX.Element }) {
-  const user = getUser();
+function ProtectedRoute({ children }: { children: ReactElement }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getUser().then(u => {
+      setUser(u);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
   if (!user) {
     return <Navigate to="/" replace />;
   }

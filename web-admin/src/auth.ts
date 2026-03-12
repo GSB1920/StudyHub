@@ -1,26 +1,44 @@
-export type User = { email: string; role: 'admin' };
+import { account } from './appwrite';
+import { Models } from 'appwrite';
+
+export type User = Models.User<Models.Preferences>;
 
 const KEY = 'wa_auth';
 
-export function signIn(email: string, password: string): User | null {
-  if (email.toLowerCase() === 'admin@gmail.com' && password === 'admin123') {
-    const user: User = { email, role: 'admin' };
-    localStorage.setItem(KEY, JSON.stringify(user));
-    return user;
+export async function signIn(
+  email: string,
+  password: string
+): Promise<{ user: User | null; error: string | null }> {
+  try {
+    await account.createEmailPasswordSession(email, password);
+    const user = await account.get();
+    return { user, error: null };
+  } catch (e: any) {
+    const message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : 'Sign in failed';
+    console.error(e);
+    return { user: null, error: message };
   }
-  return null;
 }
 
-export function signOut() {
+export async function signOut() {
+  try {
+    await account.deleteSession('current');
+  } catch (e) {
+    console.error(e);
+  }
   localStorage.removeItem(KEY);
 }
 
-export function getUser(): User | null {
-  const raw = localStorage.getItem(KEY);
-  return raw ? JSON.parse(raw) : null;
+export async function getUser(): Promise<User | null> {
+  try {
+    const user = await account.get();
+    return user;
+  } catch {
+    return null;
+  }
 }
 
-export function isAuthed(): boolean {
-  const u = getUser();
-  return !!u && u.role === 'admin';
+export async function isAuthed(): Promise<boolean> {
+  const u = await getUser();
+  return !!u;
 }

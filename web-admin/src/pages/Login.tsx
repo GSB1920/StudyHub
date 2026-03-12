@@ -18,11 +18,11 @@ export default function Login() {
     // Simulate network delay for better UX feel
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const user = signIn(email, password);
+    const { user, error } = await signIn(email, password);
     if (user) {
       navigate('/dashboard', { replace: true });
     } else {
-      setError('Invalid email or password');
+      setError(error || 'Invalid email or password');
       setLoading(false);
     }
   };

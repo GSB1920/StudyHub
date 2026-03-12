@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { PaperProvider } from 'react-native-paper';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import AccessRevoked from '@/components/AccessRevoked';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { AppLightTheme, AppDarkTheme } from '../constants/theme';
@@ -20,14 +21,7 @@ function RootLayoutNav() {
   const [introSeen, setIntroSeen] = useState<boolean | null>(null);
 
   const theme = AppLightTheme;
-
-  if (user?.kill) {
-    return (
-      <PaperProvider theme={theme}>
-        <AccessRevoked />
-      </PaperProvider>
-    );
-  }
+  const isRevoked = !!user?.kill;
 
   useEffect(() => {
     AsyncStorage.getItem('intro_seen').then(v => {
@@ -41,6 +35,7 @@ function RootLayoutNav() {
   }, []);
 
   useEffect(() => {
+    if (isRevoked) return;
     if (isLoading || introSeen === null) return;
 
     let target: string | null = null;
@@ -64,15 +59,19 @@ function RootLayoutNav() {
 
   return (
     <PaperProvider theme={theme}>
-      <ThemeProvider value={DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          <Stack.Screen name="(intro)" options={{ headerShown: false }} />
-          <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="dark" />
-      </ThemeProvider>
+      {isRevoked ? (
+        <AccessRevoked />
+      ) : (
+        <ThemeProvider value={DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+            <Stack.Screen name="(intro)" options={{ headerShown: false }} />
+            <Stack.Screen name="(admin)" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      )}
     </PaperProvider>
   );
 }

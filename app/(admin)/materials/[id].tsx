@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList } from 'react-native';
 import { Text, Surface, useTheme, Button, TextInput, Chip, List } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
-import { dataService } from '@/lib/supabase';
+import { dataService } from '@/lib/appwrite';
 import * as DocumentPicker from 'expo-document-picker';
 
 type MaterialType = 'pdf' | 'test' | 'sheet';

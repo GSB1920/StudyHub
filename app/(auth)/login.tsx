@@ -5,7 +5,7 @@ import { TextInput, Button, Text, Surface, useTheme } from 'react-native-paper';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { dataService } from '../../lib/supabase';
+import { dataService } from '../../lib/appwrite';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

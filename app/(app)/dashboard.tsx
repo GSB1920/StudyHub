@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ImageBackground } from 'react-native';
 import { Text, Surface, useTheme, Avatar, IconButton, ProgressBar, MD3Theme } from 'react-native-paper';
 import { useAuth } from '../../context/AuthContext';
-import { dataService } from '@/lib/supabase';
+import { dataService } from '@/lib/appwrite';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 

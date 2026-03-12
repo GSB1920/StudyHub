@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, List, useTheme, ActivityIndicator } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { dataService } from '@/lib/supabase';
+import { dataService } from '@/lib/appwrite';
 import * as WebBrowser from 'expo-web-browser';
 
 interface Material {

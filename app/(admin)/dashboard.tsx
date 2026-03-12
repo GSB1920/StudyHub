@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Text, Surface, useTheme, Button, Chip, TextInput, Avatar } from 'react-native-paper';
-import { dataService } from '@/lib/supabase';
+import { dataService } from '@/lib/appwrite';
 import { useRouter } from 'expo-router';
 
 const CLASSES = ['8th', '9th', '10th', '11th', '12th'];

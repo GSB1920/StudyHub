@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '../supabase';
+import { databases, storage, APPWRITE_CONFIG } from '../appwrite';
+import { ID, Query } from 'appwrite';
 import { useNavigate } from 'react-router-dom';
 import { getUser, signOut } from '../auth';
 
@@ -85,11 +86,9 @@ export default function Dashboard() {
   const [showSqlHelp, setShowSqlHelp] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState<'pdf' | 'test' | 'sheet'>('pdf');
-  const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [klass, setKlass] = useState<string>(CLASSES[0]);
   const [board, setBoard] = useState<string>(BOARDS[0]);
-  const [category, setCategory] = useState('');
   const [newSectionName, setNewSectionName] = useState('');
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectIcon, setNewSubjectIcon] = useState('');
@@ -105,41 +104,60 @@ export default function Dashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const mapDoc = (doc: any): any => ({ ...doc, id: doc.$id });
+
   const loadSubjects = async (klassFilter: string = klass, boardFilter: string = board) => {
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from('subjects')
-      .select('*')
-      .eq('class', klassFilter)
-      .eq('board', boardFilter)
-      .order('name');
-    if (error) {
-        console.error(error);
-        setError('Failed to load subjects');
-    } else {
-        setSubjects(data || []);
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SUBJECTS,
+        [
+          Query.equal('class', klassFilter),
+          Query.equal('board', boardFilter),
+          Query.orderAsc('name')
+        ]
+      );
+      setSubjects(response.documents.map(mapDoc));
+    } catch (err: any) {
+      console.error(err);
+      // Don't show error if it's just that the collection doesn't exist yet (first run)
+      if (err.code !== 404) {
+          setError('Failed to load subjects: ' + err.message);
+      }
     }
   };
 
   const loadSections = async (subjectId: string) => {
-    if (!supabase) return;
-    const { data, error } = await supabase.from('sections').select('*').eq('subject_id', subjectId).order('name');
-    if (error) {
-        console.error(error);
-        setError('Failed to load sections');
-    } else {
-        setSections(data || []);
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SECTIONS,
+        [
+          Query.equal('subject_id', subjectId),
+          Query.orderAsc('name')
+        ]
+      );
+      setSections(response.documents.map(mapDoc));
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to load sections');
     }
   };
 
   const loadMaterials = async (subjectId: string) => {
-    if (!supabase) return;
-    const { data, error } = await supabase.from('materials').select('*').eq('subject_id', subjectId).order('title');
-    if (error) {
-        console.error(error);
-        setError('Failed to load materials');
-    } else {
-        setMaterials(data || []);
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+        [
+          Query.equal('subject_id', subjectId),
+          Query.orderAsc('title')
+        ]
+      );
+      setMaterials(response.documents.map(mapDoc));
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to load materials');
     }
   };
 
@@ -161,99 +179,123 @@ export default function Dashboard() {
   }, [selected]);
 
   const addSubject = async () => {
-    if (!newSubjectName.trim() || !supabase) return;
+    if (!newSubjectName.trim()) return;
     setIsUploading(true);
-    const { error } = await supabase.from('subjects').insert({
-        name: newSubjectName.trim(),
-        class: klass,
-        board: board,
-        icon: newSubjectIcon || '📚'
-    });
-    if (error) {
-        console.error(error);
-        setError('Failed to add subject');
-    } else {
-        setNewSubjectName('');
-        loadSubjects();
+    try {
+      await databases.createDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SUBJECTS,
+        ID.unique(),
+        {
+          name: newSubjectName.trim(),
+          class: klass,
+          board: board,
+          icon: newSubjectIcon || '📚'
+        }
+      );
+      setNewSubjectName('');
+      loadSubjects();
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to add subject');
     }
     setIsUploading(false);
   };
 
   const renameSubject = async (subject: Subject, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!supabase) return;
     const newName = prompt('Enter new name for ' + subject.name, subject.name);
     if (!newName || newName === subject.name) return;
     
-    const { error } = await supabase.from('subjects').update({ name: newName }).eq('id', subject.id);
-    if (error) {
-        console.error(error);
-        setError('Failed to rename subject');
-    } else {
-        loadSubjects();
-        if (selected?.id === subject.id) {
-            setSelected({ ...subject, name: newName });
-        }
+    try {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SUBJECTS,
+        subject.id,
+        { name: newName }
+      );
+      loadSubjects();
+      if (selected?.id === subject.id) {
+        setSelected({ ...subject, name: newName });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to rename subject');
     }
   };
 
   const deleteSubject = async (subject: Subject, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!supabase) return;
     if (!confirm('Are you sure you want to delete ' + subject.name + '? All materials will be deleted.')) return;
     
-    const { error } = await supabase.from('subjects').delete().eq('id', subject.id);
-    if (error) {
-        console.error(error);
-        setError('Failed to delete subject');
-    } else {
-        loadSubjects();
-        if (selected?.id === subject.id) setSelected(null);
+    try {
+      await databases.deleteDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SUBJECTS,
+        subject.id
+      );
+      loadSubjects();
+      if (selected?.id === subject.id) setSelected(null);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to delete subject');
     }
   };
 
   const addSection = async () => {
-    if (!selected || !newSectionName.trim() || !supabase) return;
+    if (!selected || !newSectionName.trim()) return;
     setIsUploading(true);
-    const { error } = await supabase.from('sections').insert({
-        subject_id: selected.id,
-        name: newSectionName.trim()
-    });
-    if (error) {
-        console.error(error);
-        setError('Failed to add section');
-    } else {
-        setNewSectionName('');
-        loadSections(selected.id);
+    try {
+      await databases.createDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SECTIONS,
+        ID.unique(),
+        {
+          subject_id: selected.id,
+          name: newSectionName.trim()
+        }
+      );
+      setNewSectionName('');
+      loadSections(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to add section');
     }
     setIsUploading(false);
   };
 
   const updateSection = async (id: string, newName: string) => {
-    if (!supabase) return;
-    const { error } = await supabase.from('sections').update({ name: newName }).eq('id', id);
-    if (error) {
-        console.error(error);
-        setError('Failed to rename section');
-    } else {
-        if (selected) loadSections(selected.id);
+    try {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SECTIONS,
+        id,
+        { name: newName }
+      );
+      if (selected) loadSections(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to rename section');
     }
   };
 
   const deleteSection = async (id: string) => {
-    if (!supabase) return;
     if (!confirm('Delete this section? Materials in it will be deleted.')) return;
-    const { error } = await supabase.from('sections').delete().eq('id', id);
-    if (error) {
-        console.error(error);
-        setError('Failed to delete section');
-    } else {
-        if (selected) loadSections(selected.id);
+    try {
+      await databases.deleteDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.SECTIONS,
+        id
+      );
+      if (selected) loadSections(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to delete section');
     }
   };
 
   const handleUpload = async (sectionId: string) => {
-    if (!selected || !supabase) return;
+    if (!selected) return;
     
     const titleInput = document.getElementById(`title-${sectionId}`) as HTMLInputElement;
     const fileInput = document.getElementById(`file-${sectionId}`) as HTMLInputElement;
@@ -273,42 +315,40 @@ export default function Dashboard() {
     
     setIsUploading(true);
     
-    // Upload file
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `${selected.id}/${sectionId}/${fileName}`;
-    
-    const { error: uploadError } = await supabase.storage
-        .from('materials')
-        .upload(filePath, file);
+    try {
+      // Upload file
+      const fileId = ID.unique();
+      await storage.createFile(
+        APPWRITE_CONFIG.BUCKETS.MATERIALS,
+        fileId,
+        file
+      );
         
-    if (uploadError) {
-        console.error(uploadError);
-        setError('Failed to upload file');
-        setIsUploading(false);
-        return;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage
-        .from('materials')
-        .getPublicUrl(filePath);
+      const publicUrl = storage.getFileView(
+        APPWRITE_CONFIG.BUCKETS.MATERIALS,
+        fileId
+      );
         
-    // Insert material record
-    const { error: dbError } = await supabase.from('materials').insert({
-        subject_id: selected.id,
-        section_id: sectionId,
-        title: titleVal,
-        type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
-        url: publicUrl
-    });
-    
-    if (dbError) {
-        console.error(dbError);
-        setError('Failed to save material record');
-    } else {
-        titleInput.value = '';
-        fileInput.value = '';
-        loadMaterials(selected.id);
+      // Insert material record
+      await databases.createDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+        ID.unique(),
+        {
+          subject_id: selected.id,
+          section_id: sectionId,
+          title: titleVal,
+          type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
+          url: publicUrl
+        }
+      );
+        
+      titleInput.value = '';
+      fileInput.value = '';
+      loadMaterials(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to upload file or save record: ' + err.message);
     }
     setIsUploading(false);
   };
@@ -324,39 +364,44 @@ export default function Dashboard() {
   };
 
   const saveEdit = async () => {
-    if (!editingMaterialId || !supabase) return;
+    if (!editingMaterialId) return;
     
-    const { error } = await supabase.from('materials').update({ title: editingTitle }).eq('id', editingMaterialId);
-    
-    if (error) {
-        console.error(error);
-        setError('Failed to update material');
-    } else {
-        setEditingMaterialId(null);
-        setEditingTitle('');
-        if (selected) loadMaterials(selected.id);
+    try {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+        editingMaterialId,
+        { title: editingTitle }
+      );
+      setEditingMaterialId(null);
+      setEditingTitle('');
+      if (selected) loadMaterials(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to update material');
     }
   };
 
   const deleteMaterial = async (id: string) => {
-    if (!supabase) return;
     if (!confirm('Delete this material?')) return;
     
-    const { error } = await supabase.from('materials').delete().eq('id', id);
-    if (error) {
-        console.error(error);
-        setError('Failed to delete material');
-    } else {
-        if (selected) loadMaterials(selected.id);
+    try {
+      await databases.deleteDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+        id
+      );
+      if (selected) loadMaterials(selected.id);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to delete material');
     }
   };
 
   const [showSidebar, setShowSidebar] = useState(!isMobile);
 
   useEffect(() => {
-    // Auto-hide sidebar on mobile when subject is selected
     if (isMobile && selected) setShowSidebar(false);
-    // Auto-show sidebar on mobile when no subject is selected
     if (isMobile && !selected) setShowSidebar(true);
   }, [selected, isMobile]);
 
@@ -379,59 +424,8 @@ export default function Dashboard() {
         </div>
       </div>
       
-      {!supabase ? (
-         <div style={{ border: `1px solid ${theme.colors.error}`, background: '#fff6ff', padding: 12, borderRadius: 8, marginTop: 12, color: theme.colors.error }}>
-          Supabase is not configured. Please check your .env file in web-admin/.env.
-         </div>
-      ) : null}
       {error ? <div style={{ color: theme.colors.error, marginBottom: 16, padding: 12, background: '#fee2e2', borderRadius: 8 }}>{error}</div> : null}
       
-      {showSqlHelp && (
-        <div style={{ marginBottom: 24, padding: 20, background: '#fff3cd', border: '1px solid #ffeeba', borderRadius: 8, color: '#856404' }}>
-          {/* ... existing sql help content ... */}
-          <h3 style={{ marginTop: 0 }}>⚠️ Database Setup Required</h3>
-          <p>The <strong>sections</strong> table is missing. Please run the following SQL in your Supabase Dashboard &rarr; SQL Editor:</p>
-          <pre style={{ background: '#f8f9fa', padding: 12, borderRadius: 4, overflowX: 'auto', fontSize: 13, border: '1px solid #dee2e6' }}>
-{`-- Create Sections Table
-create table if not exists public.sections (
-  id uuid primary key default gen_random_uuid(),
-  subject_id uuid not null references public.subjects(id) on delete cascade,
-  name text not null,
-  created_at timestamptz default now()
-);
-
--- RLS Policies
-alter table public.sections enable row level security;
-create policy "Public sections are viewable by everyone" on public.sections for select using (true);
-create policy "Users can insert sections" on public.sections for insert with check (true);
-create policy "Users can update sections" on public.sections for update using (true);
-create policy "Users can delete sections" on public.sections for delete using (true);
-
--- Update Materials Table
-alter table public.materials add column if not exists section_id uuid references public.sections(id) on delete cascade;
-alter table public.materials add column if not exists category text;
-
--- Create User Progress Table
-create table if not exists public.user_progress (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  material_id uuid not null references public.materials(id) on delete cascade,
-  progress integer default 0,
-  status text default 'started',
-  last_accessed timestamptz default now(),
-  unique(user_id, material_id)
-);
-
--- Progress RLS
-alter table public.user_progress enable row level security;
-create policy "Users can view own progress" on public.user_progress for select using (auth.uid() = user_id);
-create policy "Users can insert own progress" on public.user_progress for insert with check (auth.uid() = user_id);
-create policy "Users can update own progress" on public.user_progress for update using (auth.uid() = user_id);`}
-          </pre>
-          <button onClick={() => window.location.reload()} style={{ marginTop: 12, padding: '8px 16px', cursor: 'pointer', background: '#856404', color: 'white', border: 'none', borderRadius: 4 }}>I've run the SQL, Refresh Page</button>
-        </div>
-      )}
-
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '300px 1fr', gap: 24 }}>
         
         {/* Sidebar / Subject List */}
