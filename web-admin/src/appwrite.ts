@@ -3,17 +3,21 @@ import { Client, Account, Databases, Storage } from 'appwrite';
 const client = new Client();
 
 const ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1';
-const PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || 'replace_with_project_id';
+const RAW_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || '';
+const PROJECT_ID = RAW_PROJECT_ID && RAW_PROJECT_ID !== 'replace_with_project_id' ? RAW_PROJECT_ID : '';
+export const APPWRITE_INIT_ERROR = PROJECT_ID
+    ? null
+    : 'Missing VITE_APPWRITE_PROJECT_ID. Set Appwrite env vars and rebuild.';
 
-client
-    .setEndpoint(ENDPOINT)
-    .setProject(PROJECT_ID);
+client.setEndpoint(ENDPOINT);
+if (PROJECT_ID) {
+    client.setProject(PROJECT_ID);
+}
 
 export const account = new Account(client);
 export const databases = new Databases(client);
 export const storage = new Storage(client);
 
-// Configuration for Database and Collections
 export const APPWRITE_CONFIG = {
     DATABASE_ID: import.meta.env.VITE_APPWRITE_DATABASE_ID || 'study_hub_db',
     COLLECTIONS: {

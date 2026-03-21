@@ -1,31 +1,51 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn } from '../auth';
+import { getUser, signIn } from '../auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    getUser()
+      .then(user => {
+        if (user) {
+          navigate('/dashboard', { replace: true });
+        }
+      })
+      .finally(() => {
+        setCheckingSession(false);
+      });
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
-    // Simulate network delay for better UX feel
-    await new Promise(resolve => setTimeout(resolve, 500));
 
     const { user, error } = await signIn(email, password);
     if (user) {
       navigate('/dashboard', { replace: true });
     } else {
       setError(error || 'Invalid email or password');
-      setLoading(false);
     }
+    setLoading(false);
   };
+
+  if (checkingSession) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.card}>
+          <p style={{ margin: 0, textAlign: 'center', color: '#666' }}>Checking session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
