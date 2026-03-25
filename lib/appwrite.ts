@@ -31,6 +31,11 @@ export const APPWRITE_CONFIG = {
 
 const mapDoc = (doc: any) => ({ ...doc, id: doc.$id });
 
+const backendAuthError = (e: any, fallbackMessage: string) => {
+  const message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : fallbackMessage;
+  return { message, type: e?.type, code: e?.code };
+};
+
 export const dataService = {
   login: async (email: string, password: string) => {
     try {
@@ -38,7 +43,7 @@ export const dataService = {
       // But typically we just try to create session
       return { data: await account.createEmailPasswordSession(email, password), error: null };
     } catch (e: any) {
-      return { data: null, error: e };
+      return { data: null, error: backendAuthError(e, 'Sign in failed') };
     }
   },
 
@@ -49,7 +54,7 @@ export const dataService = {
       await account.createEmailPasswordSession(email, password);
       return { data: user, error: null };
     } catch (e: any) {
-      return { data: null, error: e };
+      return { data: null, error: backendAuthError(e, 'Sign up failed') };
     }
   },
 
@@ -104,7 +109,7 @@ export const dataService = {
       const fileId = ID.unique();
       await storage.createFile(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId, file as any);
       
-      const url = storage.getFileDownload(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId).href;
+      const url = `${ENDPOINT}/storage/buckets/${APPWRITE_CONFIG.BUCKETS.MATERIALS}/files/${fileId}/view?project=${PROJECT_ID}`;
       return { url, error: null };
     } catch (e: any) {
       return { url: null, error: { message: e?.message || 'Upload failed' } };

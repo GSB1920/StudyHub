@@ -82,7 +82,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data: profile } = await dataService.getProfile(userId);
       const { data: accountUser } = await dataService.getCurrentUser();
       
-      const prefs = accountUser?.prefs || {};
+      const prefs = (accountUser?.prefs ?? {}) as { role?: 'admin' | 'student'; username?: string };
       const metaRole = prefs.role;
       const usernameMeta = prefs.username;
       

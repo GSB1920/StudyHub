@@ -1,6 +1,6 @@
 
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack, useRouter, usePathname } from 'expo-router';
+import { Stack, useRouter, usePathname, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { PaperProvider } from 'react-native-paper';
@@ -35,9 +35,9 @@ function RootLayoutNav() {
     if (isRevoked) return;
     if (isLoading || introSeen === null) return;
 
-    let target: string | null = null;
+    let target: Href | null = null;
     if (!user) {
-      target = !introSeen ? '/(intro)' : '/(auth)/login';
+      target = !introSeen ? ('/(intro)' as const) : ('/(auth)/login' as const);
     } else if (user.role === 'admin') {
       target = '/(admin)/dashboard';
     } else if (!user.class || !user.board) {

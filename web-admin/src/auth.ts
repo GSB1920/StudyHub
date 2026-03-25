@@ -15,12 +15,7 @@ export async function signIn(
     const user = await account.get();
     return { user, error: null };
   } catch (e: any) {
-    let message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : 'Sign in failed';
-    if (e?.type === 'general_unauthorized_scope') {
-      message = 'Sign in blocked by Appwrite settings. Add this origin to Appwrite Web platform and verify project ID.';
-    } else if (e?.type === 'user_invalid_credentials') {
-      message = 'Invalid email or password for this Appwrite project.';
-    }
+    const message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : 'Sign in failed';
     console.error(e);
     return { user: null, error: message };
   }

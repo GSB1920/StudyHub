@@ -110,9 +110,6 @@ export default function LoginScreen() {
         >
           Login
         </Button>
-        <Text variant="bodySmall" style={{ textAlign: 'center', color: theme.colors.onSurfaceVariant, marginBottom: 8 }}>
-          Mock login: student@example.com / password
-        </Text>
 
         <TouchableOpacity onPress={handleForgot} style={{ alignSelf: 'flex-end', marginBottom: 12 }}>
           <Text variant="bodySmall" style={{ color: theme.colors.primary }}>Forgot Password?</Text>

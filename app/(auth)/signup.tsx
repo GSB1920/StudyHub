@@ -37,7 +37,7 @@ export default function SignupScreen() {
         throw new Error(error.message);
       }
       
-      if (data.user) {
+      if (data) {
          // Auto login after signup if email confirmation is disabled
          alert('Account created successfully!');
          // router.push('/(auth)/login'); // No need to push, AuthContext should pick up session
