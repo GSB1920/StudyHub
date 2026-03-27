@@ -85,6 +85,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const prefs = (accountUser?.prefs ?? {}) as { role?: 'admin' | 'student'; username?: string };
       const metaRole = prefs.role;
       const usernameMeta = prefs.username;
+      const prefsClass = (accountUser?.prefs as any)?.class;
+      const prefsBoard = (accountUser?.prefs as any)?.board;
+      const prefsKill = (accountUser?.prefs as any)?.kill;
       
       let userData: User;
       if (profile) {
@@ -94,9 +97,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               role: metaRole || 'student', 
               full_name: accountUser?.name || profile.full_name, 
               username: usernameMeta || profile.username, 
-              class: profile.class, 
-              board: profile.board, 
-              kill: profile.kill 
+              class: profile.class ?? prefsClass, 
+              board: profile.board ?? prefsBoard, 
+              kill: profile.kill ?? prefsKill 
           };
       } else {
           userData = { 
@@ -105,8 +108,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               role: metaRole || 'student', 
               full_name: accountUser?.name, 
               username: usernameMeta,
-              class: undefined,
-              board: undefined
+              class: prefsClass,
+              board: prefsBoard,
+              kill: prefsKill
           };
       }
       setUser(userData);
@@ -173,7 +177,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     throw new Error(error.message);
   };
 
-  const updateAccount = async (data: { email?: string; password?: string; full_name?: string; username?: string }) => {
+  const updateAccount = async (data: { email?: string; password?: string; full_name?: string; username?: string; old_password?: string }) => {
     if (!user) return;
     const { data: resp, error } = await dataService.updateAccount(data);
     if (error) throw new Error(error.message);

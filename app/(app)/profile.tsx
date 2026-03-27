@@ -19,6 +19,7 @@ export default function ProfileScreen() {
   const [email, setEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -48,6 +49,9 @@ export default function ProfileScreen() {
       if (newPassword) {
         if (newPassword !== confirmPassword) throw new Error('Passwords do not match');
         payload.password = newPassword;
+        if (currentPassword) {
+          payload.old_password = currentPassword;
+        }
       }
       
       if (Object.keys(payload).length > 0) {
@@ -170,6 +174,19 @@ export default function ProfileScreen() {
               label="Confirm New Password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
+              mode="outlined"
+              secureTextEntry
+              style={styles.input}
+              dense
+              outlineColor="transparent"
+              contentStyle={{backgroundColor: theme.colors.surfaceVariant}}
+            />
+          ) : null}
+          {newPassword ? (
+            <TextInput
+              label="Current Password (Required for password/email change)"
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
               mode="outlined"
               secureTextEntry
               style={styles.input}

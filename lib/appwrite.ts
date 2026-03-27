@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Storage, ID, Query } from 'react-native-appwrite';
+import { Client, Account, Databases, Storage, ID, Query, Permission, Role } from 'react-native-appwrite';
 
 const client = new Client();
 
@@ -34,6 +34,21 @@ const mapDoc = (doc: any) => ({ ...doc, id: doc.$id });
 const backendAuthError = (e: any, fallbackMessage: string) => {
   const message = typeof e?.message === 'string' && e.message.length > 0 ? e.message : fallbackMessage;
   return { message, type: e?.type, code: e?.code };
+};
+
+const isCollectionNotFoundError = (e: any) => {
+  if (e?.type === 'database_collection_not_found') return true;
+  const msg = typeof e?.message === 'string' ? e.message : '';
+  return msg.includes("Collection with the requested ID") && msg.includes('could not be found');
+};
+
+const pickProfilePrefs = (data: any) => {
+  const allowedKeys = ['class', 'board', 'username', 'kill', 'full_name'];
+  const out: Record<string, any> = {};
+  for (const key of allowedKeys) {
+    if (data?.[key] !== undefined) out[key] = data[key];
+  }
+  return out;
 };
 
 export const dataService = {
@@ -107,19 +122,31 @@ export const dataService = {
       };
 
       const fileId = ID.unique();
-      await storage.createFile(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId, file as any);
+      await storage.createFile(
+        APPWRITE_CONFIG.BUCKETS.MATERIALS,
+        fileId,
+        file as any,
+        [Permission.read(Role.any())]
+      );
       
-      const url = `${ENDPOINT}/storage/buckets/${APPWRITE_CONFIG.BUCKETS.MATERIALS}/files/${fileId}/view?project=${PROJECT_ID}`;
+      const url = storage.getFileViewURL(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId).toString();
       return { url, error: null };
     } catch (e: any) {
       return { url: null, error: { message: e?.message || 'Upload failed' } };
     }
   },
 
-  updateAccount: async (data: { email?: string; password?: string; full_name?: string; username?: string }) => {
+  updateAccount: async (data: { email?: string; password?: string; full_name?: string; username?: string; old_password?: string }) => {
     try {
-        if (data.email) await account.updateEmail(data.email, ''); // password required for email update usually
-        if (data.password) await account.updatePassword(data.password);
+        if (data.email) {
+            if (!data.old_password) {
+                throw new Error('Current password is required to update email');
+            }
+            await account.updateEmail({ email: data.email, password: data.old_password });
+        }
+        if (data.password) {
+            await account.updatePassword({ password: data.password, oldPassword: data.old_password });
+        }
         if (data.full_name) await account.updateName(data.full_name);
         if (data.username) {
             // Appwrite doesn't have "username" in base account, stored in prefs or db
@@ -139,8 +166,29 @@ export const dataService = {
         try {
             await databases.updateDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILES, userId, data);
         } catch (e: any) {
+            if (isCollectionNotFoundError(e)) {
+                const prefs = pickProfilePrefs(data);
+                if (Object.keys(prefs).length > 0) {
+                    await account.updatePrefs(prefs);
+                }
+                if (typeof data?.full_name === 'string' && data.full_name.length > 0) {
+                    await account.updateName(data.full_name);
+                }
+                return { data, error: null };
+            }
             if (e.code === 404) {
-                await databases.createDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILES, userId, data);
+                try {
+                    await databases.createDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILES, userId, data);
+                } catch (inner: any) {
+                    if (isCollectionNotFoundError(inner)) {
+                        const prefs = pickProfilePrefs(data);
+                        if (Object.keys(prefs).length > 0) {
+                            await account.updatePrefs(prefs);
+                        }
+                    } else {
+                        throw inner;
+                    }
+                }
             } else {
                 throw e;
             }
@@ -160,6 +208,16 @@ export const dataService = {
         const doc = await databases.getDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILES, userId);
         return { data: mapDoc(doc), error: null };
     } catch (e: any) {
+        if (isCollectionNotFoundError(e) || e?.code === 404) {
+            try {
+                const user = await account.get();
+                const prefs = (user?.prefs ?? {}) as any;
+                const fallback = { id: user.$id, ...prefs, full_name: user?.name };
+                return { data: fallback, error: null };
+            } catch {
+                return { data: null, error: null };
+            }
+        }
         return { data: null, error: e };
     }
   },

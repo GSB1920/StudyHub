@@ -1,12 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 import { databases, storage, APPWRITE_CONFIG } from '../appwrite';
-import { ID, Query } from 'appwrite';
+import { ID, Query, Permission, Role } from 'appwrite';
 import { useNavigate } from 'react-router-dom';
 import { getUser, signOut } from '../auth';
 
 type Subject = { id: string; name: string; icon?: string; class?: string; board?: string };
 type Section = { id: string; subject_id: string; name: string };
-type Material = { id: string; title: string; type: 'pdf' | 'test' | 'sheet'; url?: string; subject_id?: string; section_id?: string; category?: string };
+type Material = {
+  id: string;
+  title: string;
+  type: 'pdf' | 'test' | 'sheet';
+  url?: string;
+  subject_id?: string;
+  section_id?: string;
+  category?: string;
+  file_id?: string;
+  file_name?: string;
+  mime_type?: string;
+};
 
 const CLASSES = ['8th', '9th', '10th', '11th', '12th'];
 const BOARDS = ['CBSE', 'ICSE', 'State Board'];
@@ -105,6 +116,74 @@ export default function Dashboard() {
   }, []);
 
   const mapDoc = (doc: any): any => ({ ...doc, id: doc.$id });
+
+  const parseFileIdFromUrl = (url?: string) => {
+    if (!url) return null;
+    const match = url.match(/\/files\/([^/?]+)/i);
+    return match?.[1] || null;
+  };
+
+  const getMaterialFileId = (material: Material) => material.file_id || parseFileIdFromUrl(material.url) || null;
+
+  const getMaterialOpenUrl = (material: Material) => {
+    const fileId = getMaterialFileId(material);
+    if (!fileId) return material.url || '';
+    return storage.getFileView(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId);
+  };
+
+  const getMaterialDownloadUrl = (material: Material) => {
+    const fileId = getMaterialFileId(material);
+    if (!fileId) return material.url || '';
+    return storage.getFileDownload(APPWRITE_CONFIG.BUCKETS.MATERIALS, fileId);
+  };
+
+  const fetchGuestBlob = async (url: string) => {
+    const response = await fetch(url, { credentials: 'omit' });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Request failed with status ${response.status}`);
+    }
+    return response.blob();
+  };
+
+  const handleOpenMaterial = async (material: Material) => {
+    const openUrl = getMaterialOpenUrl(material);
+    if (!openUrl) {
+      setError('Material URL is missing');
+      return;
+    }
+    try {
+      const blob = await fetchGuestBlob(openUrl);
+      const objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (err: any) {
+      console.error(err);
+      setError(`Failed to open material: ${err?.message || 'Unknown error'}`);
+    }
+  };
+
+  const handleDownloadMaterial = async (material: Material) => {
+    const downloadUrl = getMaterialDownloadUrl(material);
+    if (!downloadUrl) {
+      setError('Material URL is missing');
+      return;
+    }
+    try {
+      const blob = await fetchGuestBlob(downloadUrl);
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = material.file_name || `${material.title}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    } catch (err: any) {
+      console.error(err);
+      setError(`Failed to download material: ${err?.message || 'Unknown error'}`);
+    }
+  };
 
   const loadSubjects = async (klassFilter: string = klass, boardFilter: string = board) => {
     try {
@@ -321,7 +400,8 @@ export default function Dashboard() {
       await storage.createFile(
         APPWRITE_CONFIG.BUCKETS.MATERIALS,
         fileId,
-        file
+        file,
+        [Permission.read(Role.any())]
       );
         
       const publicUrl = storage.getFileView(
@@ -339,7 +419,10 @@ export default function Dashboard() {
           section_id: sectionId,
           title: titleVal,
           type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
-          url: publicUrl
+          url: publicUrl,
+          file_id: fileId,
+          file_name: file.name,
+          mime_type: file.type || null
         }
       );
         
@@ -568,7 +651,22 @@ export default function Dashboard() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
                                             <span style={{ background: '#e9ecef', padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, color: theme.colors.textSecondary }}>{m.type.toUpperCase()}</span>
                                             <span style={{ fontWeight: 500, flex: 1, wordBreak: 'break-word' }}>{m.title}</span>
-                                            {m.url && <a href={m.url} target="_blank" style={{ fontSize: 12, color: theme.colors.primary, textDecoration: 'none', whiteSpace: 'nowrap' }}>Open</a>}
+                                            {m.url && (
+                                              <button
+                                                onClick={() => handleOpenMaterial(m)}
+                                                style={{ cursor: 'pointer', padding: '4px 8px', fontSize: 12, border: 'none', background: 'transparent', color: theme.colors.primary, whiteSpace: 'nowrap' }}
+                                              >
+                                                Open
+                                              </button>
+                                            )}
+                                            {m.url && (
+                                              <button
+                                                onClick={() => handleDownloadMaterial(m)}
+                                                style={{ cursor: 'pointer', padding: '4px 8px', fontSize: 12, border: 'none', background: 'transparent', color: theme.colors.primary, whiteSpace: 'nowrap' }}
+                                              >
+                                                Download
+                                              </button>
+                                            )}
                                         </div>
                                         <div style={{ display: 'flex', gap: 8, alignSelf: isMobile ? 'flex-end' : 'auto' }}>
                                           <button onClick={() => startEditing(m)} style={{ cursor: 'pointer', padding: '4px 8px', fontSize: 12, border: 'none', background: 'transparent', color: theme.colors.textSecondary }}>Edit</button>
