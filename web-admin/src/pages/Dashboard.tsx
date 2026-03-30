@@ -106,6 +106,7 @@ export default function Dashboard() {
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [uploadingSectionId, setUploadingSectionId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const lastSubjectsKeyRef = useRef<string | null>(null);
 
@@ -454,6 +455,7 @@ export default function Dashboard() {
         return;
     }
     
+    setUploadingSectionId(sectionId);
     setIsUploading(true);
     
     try {
@@ -515,6 +517,7 @@ export default function Dashboard() {
       console.error(err);
       setError('Failed to upload file or save record: ' + err.message);
     }
+    setUploadingSectionId(null);
     setIsUploading(false);
   };
 
@@ -702,13 +705,13 @@ export default function Dashboard() {
                            {/* Add Material Form */}
                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 12, marginBottom: 16, alignItems: 'center', background: '#f8f9fa', padding: 16, borderRadius: theme.borderRadius }}>
                               <div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
-                                <input id={`title-${section.id}`} placeholder="Material Title (Required)" style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }} />
+                                <input id={`title-${section.id}`} placeholder="Material Title (Required)" style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }} disabled={isUploading} />
                               </div>
                               <div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
                                 <input type="file" id={`file-${section.id}`} disabled={isUploading} style={{ fontSize: 14, width: '100%' }} />
                               </div>
                               <button onClick={() => handleUpload(section.id)} style={{ ...styles.button, ...styles.primaryButton, padding: '8px 16px', width: isMobile ? '100%' : 'auto' }} disabled={isUploading}>
-                                {isUploading ? 'Uploading...' : 'Add Material'}
+                                {isUploading && uploadingSectionId === section.id ? 'Uploading...' : 'Add Material'}
                               </button>
                            </div>
 
