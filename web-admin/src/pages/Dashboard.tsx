@@ -141,9 +141,32 @@ export default function Dashboard() {
     const response = await fetch(url, { credentials: 'omit' });
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(text || `Request failed with status ${response.status}`);
+      let message = text || `Request failed with status ${response.status}`;
+      try {
+        const parsed = JSON.parse(text);
+        message = parsed?.message || message;
+      } catch {}
+      throw new Error(message);
     }
     return response.blob();
+  };
+
+  const needsPublicReadRepair = (message: string) =>
+    message.includes('Only ["any","guests"] scopes are allowed') || message.includes('Only [\\"any\\",\\"guests\\"] scopes are allowed');
+
+  const ensurePublicRead = async (material: Material) => {
+    const fileId = getMaterialFileId(material);
+    if (!fileId) return false;
+    await storage.updateFile(
+      APPWRITE_CONFIG.BUCKETS.MATERIALS,
+      fileId,
+      material.file_name || material.title || fileId,
+      [Permission.read(Role.any())]
+    );
+    setMaterials((prev) =>
+      prev.map((item) => (item.id === material.id ? { ...item, file_id: fileId } : item))
+    );
+    return true;
   };
 
   const handleOpenMaterial = async (material: Material) => {
@@ -158,8 +181,25 @@ export default function Dashboard() {
       window.open(objectUrl, '_blank', 'noopener,noreferrer');
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
+      const message = err?.message || 'Unknown error';
+      if (needsPublicReadRepair(message)) {
+        try {
+          const repaired = await ensurePublicRead(material);
+          if (repaired) {
+            const blob = await fetchGuestBlob(getMaterialOpenUrl(material));
+            const objectUrl = URL.createObjectURL(blob);
+            window.open(objectUrl, '_blank', 'noopener,noreferrer');
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            return;
+          }
+        } catch (repairErr: any) {
+          console.error(repairErr);
+          setError(`Failed to repair file permissions: ${repairErr?.message || 'Unknown error'}`);
+          return;
+        }
+      }
       console.error(err);
-      setError(`Failed to open material: ${err?.message || 'Unknown error'}`);
+      setError(`Failed to open material: ${message}`);
     }
   };
 
@@ -180,8 +220,30 @@ export default function Dashboard() {
       link.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
+      const message = err?.message || 'Unknown error';
+      if (needsPublicReadRepair(message)) {
+        try {
+          const repaired = await ensurePublicRead(material);
+          if (repaired) {
+            const blob = await fetchGuestBlob(getMaterialDownloadUrl(material));
+            const objectUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = material.file_name || `${material.title}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+            return;
+          }
+        } catch (repairErr: any) {
+          console.error(repairErr);
+          setError(`Failed to repair file permissions: ${repairErr?.message || 'Unknown error'}`);
+          return;
+        }
+      }
       console.error(err);
-      setError(`Failed to download material: ${err?.message || 'Unknown error'}`);
+      setError(`Failed to download material: ${message}`);
     }
   };
 

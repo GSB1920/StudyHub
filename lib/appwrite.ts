@@ -112,13 +112,14 @@ export const dataService = {
       }
   },
 
-  uploadMaterialFile: async (subjectId: string, uri: string, name: string, contentType: string) => {
+  uploadMaterialFile: async (subjectId: string, uri: string, name: string, contentType: string, size?: number) => {
     try {
       // React Native Appwrite Storage upload needs a file object with uri, name, type
       const file = {
           uri: uri,
           name: name,
           type: contentType,
+          size: size || 0,
       };
 
       const fileId = ID.unique();

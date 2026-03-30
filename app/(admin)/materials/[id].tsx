@@ -51,7 +51,7 @@ export default function AdminMaterials() {
       if (!asset) return;
       const mime = asset.mimeType || 'application/octet-stream';
       const impliedType: MaterialType = mime.includes('pdf') ? 'pdf' : (type || 'sheet');
-      const { url, error } = await dataService.uploadMaterialFile(String(id), asset.uri, asset.name || 'file', mime);
+      const { url, error } = await dataService.uploadMaterialFile(String(id), asset.uri, asset.name || 'file', mime, asset.size);
       if (error) {
         alert(error.message);
         return;
