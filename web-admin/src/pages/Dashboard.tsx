@@ -142,18 +142,40 @@ export default function Dashboard() {
     const response = await fetch(url, { credentials: 'omit' });
     if (!response.ok) {
       const text = await response.text();
-      let message = text || `Request failed with status ${response.status}`;
+      let parsed: any = null;
       try {
-        const parsed = JSON.parse(text);
-        message = parsed?.message || message;
+        parsed = JSON.parse(text);
       } catch {}
-      throw new Error(message);
+      const message = parsed?.message || text || `Request failed with status ${response.status}`;
+      const error: any = new Error(message);
+      error.status = response.status;
+      error.type = parsed?.type;
+      error.code = parsed?.code;
+      throw error;
     }
     return response.blob();
   };
 
-  const needsPublicReadRepair = (message: string) =>
-    message.includes('Only ["any","guests"] scopes are allowed') || message.includes('Only [\\"any\\",\\"guests\\"] scopes are allowed');
+  const shouldAttemptPublicReadRepair = (err: any, material: Material) => {
+    if (!getMaterialFileId(material)) return false;
+    const message = String(err?.message || '').toLowerCase();
+    const type = String(err?.type || '').toLowerCase();
+    const status = Number(err?.status || 0);
+    return (
+      status === 401 ||
+      status === 403 ||
+      type.includes('unauthorized') ||
+      type.includes('forbidden') ||
+      type.includes('scope') ||
+      message.includes('missing "read" permission') ||
+      message.includes("missing 'read' permission") ||
+      message.includes('scopes are allowed') ||
+      message.includes('not authorized') ||
+      message.includes('forbidden') ||
+      message.includes('unauthorized') ||
+      message.includes('permission')
+    );
+  };
 
   const ensurePublicRead = async (material: Material) => {
     const fileId = getMaterialFileId(material);
@@ -183,7 +205,7 @@ export default function Dashboard() {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
       const message = err?.message || 'Unknown error';
-      if (needsPublicReadRepair(message)) {
+      if (shouldAttemptPublicReadRepair(err, material)) {
         try {
           const repaired = await ensurePublicRead(material);
           if (repaired) {
@@ -222,7 +244,7 @@ export default function Dashboard() {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
       const message = err?.message || 'Unknown error';
-      if (needsPublicReadRepair(message)) {
+      if (shouldAttemptPublicReadRepair(err, material)) {
         try {
           const repaired = await ensurePublicRead(material);
           if (repaired) {
