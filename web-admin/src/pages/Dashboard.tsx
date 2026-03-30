@@ -472,21 +472,41 @@ export default function Dashboard() {
       );
         
       // Insert material record
-      await databases.createDocument(
-        APPWRITE_CONFIG.DATABASE_ID,
-        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
-        ID.unique(),
-        {
-          subject_id: selected.id,
-          section_id: sectionId,
-          title: titleVal,
-          type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
-          url: publicUrl,
-          file_id: fileId,
-          file_name: file.name,
-          mime_type: file.type || null
+      try {
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+          ID.unique(),
+          {
+            subject_id: selected.id,
+            section_id: sectionId,
+            title: titleVal,
+            type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
+            url: publicUrl,
+            file_id: fileId,
+            file_name: file.name,
+            mime_type: file.type || null
+          }
+        );
+      } catch (insertErr: any) {
+        if (insertErr.message && insertErr.message.includes('Unknown attribute')) {
+          // Fallback for older schemas that don't have file_id, file_name, mime_type
+          await databases.createDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+            ID.unique(),
+            {
+              subject_id: selected.id,
+              section_id: sectionId,
+              title: titleVal,
+              type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
+              url: publicUrl
+            }
+          );
+        } else {
+          throw insertErr;
         }
-      );
+      }
         
       titleInput.value = '';
       fileInput.value = '';
