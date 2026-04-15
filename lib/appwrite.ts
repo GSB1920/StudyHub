@@ -139,14 +139,15 @@ export const dataService = {
 
   updateAccount: async (data: { email?: string; password?: string; full_name?: string; username?: string; old_password?: string }) => {
     try {
+        const oldPassword = data.old_password ?? '';
+        if ((data.email || data.password) && !oldPassword) {
+            throw new Error('Current password is required to update email or password');
+        }
         if (data.email) {
-            if (!data.old_password) {
-                throw new Error('Current password is required to update email');
-            }
-            await account.updateEmail({ email: data.email, password: data.old_password });
+            await account.updateEmail({ email: data.email, password: oldPassword });
         }
         if (data.password) {
-            await account.updatePassword({ password: data.password, oldPassword: data.old_password });
+            await account.updatePassword({ password: data.password, oldPassword: oldPassword });
         }
         if (data.full_name) await account.updateName(data.full_name);
         if (data.username) {

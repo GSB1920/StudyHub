@@ -13,6 +13,35 @@ interface Subject {
   icon: string;
 }
 
+const EMOJI_ICON_MAP: Record<string, string> = {
+  '📚': 'book-open-page-variant',
+  '📖': 'book-open-variant',
+  '📘': 'book-education',
+  '📗': 'book',
+  '🧪': 'flask-outline',
+  '🔬': 'microscope',
+  '🧮': 'calculator-variant-outline',
+  '➗': 'division',
+  '✖️': 'multiplication',
+  '➕': 'plus',
+  '➖': 'minus',
+  '📐': 'ruler-square-compass',
+  '🌍': 'earth',
+  '🗺️': 'map-outline',
+  '🏛️': 'bank-outline',
+  '💻': 'laptop',
+  '🎓': 'school-outline',
+};
+
+const resolveSubjectIcon = (icon?: string) => {
+  if (!icon) return 'book-open-page-variant';
+  if (EMOJI_ICON_MAP[icon]) return EMOJI_ICON_MAP[icon];
+  const normalized = icon.trim();
+  if (!normalized) return 'book-open-page-variant';
+  if (/^[a-z0-9-]+$/i.test(normalized)) return normalized;
+  return 'book-open-page-variant';
+};
+
 export default function DashboardScreen() {
   const { user, signOut } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -166,7 +195,7 @@ export default function DashboardScreen() {
              <View style={[styles.iconContainer, isWide && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
                <Avatar.Icon 
                  size={32} 
-                 icon={item.icon} 
+                icon={resolveSubjectIcon(item.icon)} 
                  style={{ backgroundColor: 'transparent' }} 
                  color={isWide ? 'white' : theme.colors.primary}
                />

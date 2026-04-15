@@ -5,7 +5,7 @@ import { Text, Surface, Button, Chip, useTheme } from 'react-native-paper';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 
-const CLASSES = ['8th', '9th', '10th', '11th', '12th'];
+const CLASSES = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
 const BOARDS = ['CBSE', 'ICSE', 'State Board'];
 
 export default function OnboardingScreen() {
