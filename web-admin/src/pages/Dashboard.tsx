@@ -106,6 +106,7 @@ export default function Dashboard() {
   const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [uploadingSectionId, setUploadingSectionId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const lastSubjectsKeyRef = useRef<string | null>(null);
 
@@ -141,18 +142,40 @@ export default function Dashboard() {
     const response = await fetch(url, { credentials: 'omit' });
     if (!response.ok) {
       const text = await response.text();
-      let message = text || `Request failed with status ${response.status}`;
+      let parsed: any = null;
       try {
-        const parsed = JSON.parse(text);
-        message = parsed?.message || message;
+        parsed = JSON.parse(text);
       } catch {}
-      throw new Error(message);
+      const message = parsed?.message || text || `Request failed with status ${response.status}`;
+      const error: any = new Error(message);
+      error.status = response.status;
+      error.type = parsed?.type;
+      error.code = parsed?.code;
+      throw error;
     }
     return response.blob();
   };
 
-  const needsPublicReadRepair = (message: string) =>
-    message.includes('Only ["any","guests"] scopes are allowed') || message.includes('Only [\\"any\\",\\"guests\\"] scopes are allowed');
+  const shouldAttemptPublicReadRepair = (err: any, material: Material) => {
+    if (!getMaterialFileId(material)) return false;
+    const message = String(err?.message || '').toLowerCase();
+    const type = String(err?.type || '').toLowerCase();
+    const status = Number(err?.status || 0);
+    return (
+      status === 401 ||
+      status === 403 ||
+      type.includes('unauthorized') ||
+      type.includes('forbidden') ||
+      type.includes('scope') ||
+      message.includes('missing "read" permission') ||
+      message.includes("missing 'read' permission") ||
+      message.includes('scopes are allowed') ||
+      message.includes('not authorized') ||
+      message.includes('forbidden') ||
+      message.includes('unauthorized') ||
+      message.includes('permission')
+    );
+  };
 
   const ensurePublicRead = async (material: Material) => {
     const fileId = getMaterialFileId(material);
@@ -182,7 +205,7 @@ export default function Dashboard() {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
       const message = err?.message || 'Unknown error';
-      if (needsPublicReadRepair(message)) {
+      if (shouldAttemptPublicReadRepair(err, material)) {
         try {
           const repaired = await ensurePublicRead(material);
           if (repaired) {
@@ -221,7 +244,7 @@ export default function Dashboard() {
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
     } catch (err: any) {
       const message = err?.message || 'Unknown error';
-      if (needsPublicReadRepair(message)) {
+      if (shouldAttemptPublicReadRepair(err, material)) {
         try {
           const repaired = await ensurePublicRead(material);
           if (repaired) {
@@ -454,6 +477,7 @@ export default function Dashboard() {
         return;
     }
     
+    setUploadingSectionId(sectionId);
     setIsUploading(true);
     
     try {
@@ -472,21 +496,41 @@ export default function Dashboard() {
       );
         
       // Insert material record
-      await databases.createDocument(
-        APPWRITE_CONFIG.DATABASE_ID,
-        APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
-        ID.unique(),
-        {
-          subject_id: selected.id,
-          section_id: sectionId,
-          title: titleVal,
-          type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
-          url: publicUrl,
-          file_id: fileId,
-          file_name: file.name,
-          mime_type: file.type || null
+      try {
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+          ID.unique(),
+          {
+            subject_id: selected.id,
+            section_id: sectionId,
+            title: titleVal,
+            type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
+            url: publicUrl,
+            file_id: fileId,
+            file_name: file.name,
+            mime_type: file.type || null
+          }
+        );
+      } catch (insertErr: any) {
+        if (insertErr.message && insertErr.message.includes('Unknown attribute')) {
+          // Fallback for older schemas that don't have file_id, file_name, mime_type
+          await databases.createDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.MATERIALS,
+            ID.unique(),
+            {
+              subject_id: selected.id,
+              section_id: sectionId,
+              title: titleVal,
+              type: file.type === 'application/pdf' ? 'pdf' : 'sheet',
+              url: publicUrl
+            }
+          );
+        } else {
+          throw insertErr;
         }
-      );
+      }
         
       titleInput.value = '';
       fileInput.value = '';
@@ -495,6 +539,7 @@ export default function Dashboard() {
       console.error(err);
       setError('Failed to upload file or save record: ' + err.message);
     }
+    setUploadingSectionId(null);
     setIsUploading(false);
   };
 
@@ -682,13 +727,13 @@ export default function Dashboard() {
                            {/* Add Material Form */}
                            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 12, marginBottom: 16, alignItems: 'center', background: '#f8f9fa', padding: 16, borderRadius: theme.borderRadius }}>
                               <div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
-                                <input id={`title-${section.id}`} placeholder="Material Title (Required)" style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }} />
+                                <input id={`title-${section.id}`} placeholder="Material Title (Required)" style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }} disabled={isUploading} />
                               </div>
                               <div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
                                 <input type="file" id={`file-${section.id}`} disabled={isUploading} style={{ fontSize: 14, width: '100%' }} />
                               </div>
                               <button onClick={() => handleUpload(section.id)} style={{ ...styles.button, ...styles.primaryButton, padding: '8px 16px', width: isMobile ? '100%' : 'auto' }} disabled={isUploading}>
-                                {isUploading ? 'Uploading...' : 'Add Material'}
+                                {isUploading && uploadingSectionId === section.id ? 'Uploading...' : 'Add Material'}
                               </button>
                            </div>
 
